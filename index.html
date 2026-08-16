@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Libro de Gastos — Laura</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #F5F1E7;
+    --paper-card: #FFFFFF;
+    --ink: #1E2A38;
+    --ink-soft: #55606E;
+    --rule: #D9D2BE;
+    --green: #33604A;
+    --green-deep: #24483A;
+    --rust: #B5502B;
+    --rust-soft: #F1DDD1;
+    --gold: #C79A3C;
+    --row-alt: #FAF8F1;
+    --danger: #A8402A;
+    --radius: 10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{ font-family:'Fraunces',serif; font-weight:600; margin:0; }
+  .mono{ font-family:'IBM Plex Mono',monospace; }
+  .app{ display:flex; min-height:100vh; }
+
+  /* ---- Sidebar ---- */
+  .sidebar{
+    width:230px; flex-shrink:0;
+    background:var(--green-deep);
+    color:#EDE7D6;
+    padding:28px 0 20px;
+    display:flex; flex-direction:column;
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+  }
+  .brand{ padding:0 22px 22px; border-bottom:1px solid rgba(255,255,255,.12); margin-bottom:10px;}
+  .brand h1{ font-size:20px; color:#fff; line-height:1.15; }
+  .brand span{ display:block; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#B9C9BE; margin-top:6px; letter-spacing:.03em;}
+  .nav-group{ padding:14px 12px 4px; }
+  .nav-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.09em; color:#9BAF9F; padding:0 10px 6px; }
+  .nav-btn{
+    display:flex; align-items:center; justify-content:space-between;
+    width:100%; text-align:left; background:none; border:none; cursor:pointer;
+    color:#DCE3D5; padding:9px 10px; border-radius:8px; font-size:13.5px;
+    font-family:'Inter',sans-serif; margin-bottom:2px; transition:background .15s;
+  }
+  .nav-btn:hover{ background:rgba(255,255,255,.07); }
+  .nav-btn.active{ background:var(--rust); color:#fff; font-weight:600; }
+  .nav-btn small{ font-family:'IBM Plex Mono',monospace; font-size:10px; opacity:.75; }
+
+  /* ---- Main ---- */
+  .main{ flex:1; padding:34px 40px 80px; max-width:1180px; }
+  .page-head{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:22px; flex-wrap:wrap; gap:14px;}
+  .page-head h2{ font-size:28px; color:var(--green-deep); }
+  .page-head .sub{ color:var(--ink-soft); font-size:13.5px; margin-top:4px;}
+
+  .rate-box{
+    background:var(--paper-card); border:1px solid var(--rule); border-radius:var(--radius);
+    padding:10px 16px; display:flex; align-items:center; gap:10px; font-size:13px;
+  }
+  .rate-box input{ width:80px; }
+
+  .total-banner{
+    background:var(--green-deep); color:#fff; border-radius:var(--radius);
+    padding:20px 26px; display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:26px; box-shadow: 0 6px 18px -8px rgba(36,72,58,.55);
+  }
+  .total-banner .label{ font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:#B9C9BE;}
+  .total-banner .amount{ font-family:'IBM Plex Mono',monospace; font-size:30px; font-weight:600; }
+
+  section.card{
+    background:var(--paper-card); border:1px solid var(--rule); border-radius:var(--radius);
+    margin-bottom:22px; overflow:hidden;
+  }
+  .card-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:13px 18px; color:#fff;
+  }
+  .card-head h3{ font-size:15.5px; color:#fff; }
+  .card-head .subtotal{ font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600;}
+  .c-fijos{ background:var(--green); }
+  .c-varios{ background:#6C4A9C; }
+  .c-cuotas{ background:var(--rust); }
+  .c-variostarj{ background:#C77B18; }
+  .c-susc{ background:#1A7F7F; }
+
+  table{ width:100%; border-collapse:collapse; }
+  thead th{
+    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--ink-soft); padding:9px 12px; border-bottom:1px solid var(--rule); background:#F1EEE3;
+  }
+  tbody tr{ border-bottom:1px dashed var(--rule); }
+  tbody tr:nth-child(even){ background:var(--row-alt); }
+  tbody td{ padding:6px 10px; }
+  tbody td.num{ text-align:right; }
+  td input, td select{
+    width:100%; border:1px solid transparent; background:transparent; font-family:inherit;
+    font-size:13px; padding:6px 7px; border-radius:6px; color:var(--ink);
+  }
+  td input:focus, td select:focus{ outline:none; border-color:var(--gold); background:#fff; }
+  td input.mono, td.readonly{ font-family:'IBM Plex Mono',monospace; }
+  td.readonly{ color:var(--ink-soft); text-align:right; padding-right:14px; }
+  .del-btn{
+    border:none; background:none; color:var(--danger); cursor:pointer; font-size:15px;
+    width:26px; height:26px; border-radius:50%; line-height:1;
+  }
+  .del-btn:hover{ background:var(--rust-soft); }
+  .add-row-bar{ padding:10px 14px; }
+  .add-btn{
+    border:1px dashed var(--rule); background:none; color:var(--ink-soft);
+    font-family:'Inter',sans-serif; font-size:12.5px; padding:7px 14px; border-radius:8px; cursor:pointer;
+  }
+  .add-btn:hover{ border-color:var(--green); color:var(--green-deep); }
+
+  /* Resumen / Informe tables */
+  .plain-table{ background:var(--paper-card); border:1px solid var(--rule); border-radius:var(--radius); overflow:hidden;}
+  .plain-table th{ background:var(--green-deep); color:#fff; }
+  .plain-table td{ padding:9px 12px; font-size:13.5px; }
+  .plain-table tr:last-child td{ font-weight:700; background:#EFEADA; }
+
+  .bars{ display:flex; flex-direction:column; gap:10px; }
+  .bar-row{ display:grid; grid-template-columns:150px 1fr 100px; align-items:center; gap:10px; font-size:12.5px;}
+  .bar-track{ background:#EEE9DA; border-radius:6px; overflow:hidden; height:20px;}
+  .bar-fill{ height:100%; background:linear-gradient(90deg,var(--green),var(--gold)); border-radius:6px; }
+  .bar-amount{ text-align:right; font-family:'IBM Plex Mono',monospace; }
+
+  .month-picker{ display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+  .month-picker button{
+    border:1px solid var(--rule); background:#fff; padding:6px 13px; border-radius:20px;
+    font-size:12.5px; cursor:pointer; color:var(--ink-soft);
+  }
+  .month-picker button.active{ background:var(--green-deep); color:#fff; border-color:var(--green-deep);}
+
+  footer.note{ color:var(--ink-soft); font-size:11.5px; margin-top:30px; line-height:1.6; }
+
+  @media (max-width: 820px){
+    .app{ flex-direction:column; }
+    .sidebar{ width:100%; height:auto; position:relative; flex-direction:row; overflow-x:auto; padding:14px; }
+    .brand{ display:none; }
+    .nav-group{ display:flex; padding:0 6px; gap:4px; }
+    .nav-label{ display:none; }
+    .main{ padding:22px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">
+      <h1>Libro de Gastos</h1>
+      <span>LAURA · AR$ / US$</span>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">General</div>
+      <button class="nav-btn" data-view="resumen">Resumen</button>
+      <button class="nav-btn" data-view="cuotas">Cuotas Pendientes</button>
+      <button class="nav-btn" data-view="suscripciones">Suscripciones</button>
+      <button class="nav-btn" data-view="informe">Informe</button>
+    </div>
+    <div class="nav-group" id="monthNav">
+      <div class="nav-label">Meses</div>
+    </div>
+  </nav>
+
+  <main class="main" id="main"></main>
+</div>
+
+<script>
+/* =========================== DATOS =========================== */
+const MESES = ["Ago-2026","Sep-2026","Oct-2026","Nov-2026","Dic-2026","Ene-2027",
+               "Feb-2027","Mar-2027","Abr-2027","May-2027","Jun-2027","Jul-2027"];
+
+const CATEGORIAS = ["Vivienda","Auto","Transporte","Delivery","Supermercado","Celular",
+                     "Salud","Impuestos/Intereses","Suscripciones","Varios","Otro"];
+const TARJETAS = ["Visa","Mastercard","Otra"];
+
+function uid(){ return Math.random().toString(36).slice(2,9); }
+
+function seedData(){
+  const emptyMonth = () => ({fijos:[], varios:[], variosTarjeta:[]});
+  const months = {};
+  MESES.forEach(m => months[m] = emptyMonth());
+
+  months["Ago-2026"].fijos = [
+    {id:uid(), fecha:"01/08/2026", descripcion:"Alquiler", categoria:"Vivienda", monto:960000, compartido:true},
+    {id:uid(), fecha:"01/08/2026", descripcion:"Expensas", categoria:"Vivienda", monto:466435, compartido:true},
+    {id:uid(), fecha:"01/08/2026", descripcion:"Luz", categoria:"Vivienda", monto:23690, compartido:true},
+    {id:uid(), fecha:"01/08/2026", descripcion:"Gas", categoria:"Vivienda", monto:7954, compartido:true},
+    {id:uid(), fecha:"01/08/2026", descripcion:"Internet", categoria:"Vivienda", monto:52620, compartido:true},
+    {id:uid(), fecha:"01/08/2026", descripcion:"Cuota Auto", categoria:"Auto", monto:426257, compartido:false},
+  ];
+
+  months["Ago-2026"].variosTarjeta = [
+    ["PAYU*AR*UBER","Visa","Transporte",5811.00],
+    ["PAYU*AR*UBER","Visa","Transporte",10180.00],
+    ["DLO*PEDIDOSYA THE MARK","Visa","Delivery",14634.00],
+    ["DLO*PEDIDOSYA PROPINA","Visa","Delivery",550.00],
+    ["DLO*PEDIDOSYA THE MARK","Visa","Delivery",20414.00],
+    ["DLO*PedidosYa Propina","Visa","Delivery",750.00],
+    ["DLO*PedidosYa Market","Visa","Delivery",19178.20],
+    ["DLO*PedidosYa Propina","Visa","Delivery",750.00],
+    ["DLO*PEDIDOSYA THE MARK","Visa","Delivery",14609.00],
+    ["DLO*PedidosYa Propina","Visa","Delivery",650.00],
+    ["MERPAGO*COTO","Visa","Supermercado",15706.36],
+    ["MERPAGO*CARREFOUR","Visa","Supermercado",12186.50],
+    ["MERPAGO*COTO","Visa","Supermercado",24264.99],
+    ["MERPAGO*PERSONAL","Visa","Celular",10000.00],
+    ["MERPAGO*NICOLASGABRIELDEC","Visa","Supermercado",27817.40],
+    ["MERPAGO*PERSONAL","Visa","Celular",10000.00],
+    ["MERPAGO*FARMACITY","Visa","Salud",36085.50],
+    ["MERPAGO*COTO","Visa","Supermercado",40037.62],
+    ["MERPAGO*COTO","Visa","Supermercado",39961.98],
+    ["MERPAGO*NARTLEONARDOJO","Visa","Salud",53495.00],
+    ["MERPAGO*FARMACITY","Visa","Salud",28946.00],
+    ["MERPAGO*MERCADOLIBRE","Visa","Varios",24238.20],
+    ["MERPAGO*BALERDIMARTINM","Visa","Varios",78316.68],
+    ["MERPAGO*LOSMELLIS","Visa","Varios",5000.00],
+    ["MERPAGO*KARENGISELLEALVAR","Visa","Varios",5349.50],
+    ["MERPAGO*BENJAMINCHAVEZBAC","Visa","Varios",19953.64],
+    ["MERPAGO*NICOLASGABRIEL","Visa","Supermercado",52425.10],
+    ["SUBE VIAJES - BUSES","Visa","Transporte",1002.80],
+    ["Intereses, IVA e impuestos del resumen","Visa","Impuestos/Intereses",38060.56],
+  ].map(([descripcion,tarjeta,categoria,monto]) => ({id:uid(),descripcion,tarjeta,categoria,monto}));
+
+  const suscripciones = [
+    ["WELLHUB AR","ARS",41999.00],["WELLHUB AR","ARS",41999.00],["WELLHUB AR","ARS",41999.00],
+    ["Prime Video","ARS",7863.79],["Meli","ARS",20990.00],
+    ["Microsoft 365","USD",3.12],["Apple","USD",9.79],["Google One","USD",9.99],
+    ["Apple","USD",5.99],["Spotify","USD",2.25],["Netflix","USD",13.65],["Apple","USD",4.99],
+  ].map(([descripcion,moneda,monto]) => ({id:uid(),descripcion,moneda,monto,desde:"",hasta:""}));
+
+  const cuotasPendientes = [
+    ["MERPAGO*SOYHENRY","Curso Data Science","Mastercard",1624500.00,12,"Ago-2026"],
+    ["NIKE BARRACAS (cupón 005208)","Zapatillas Manu","Visa",319998.00,6,"Abr-2026"],
+    ["NIKE BARRACAS (cupón 005209)","Zapatillas Manu","Visa",434997.96,6,"Abr-2026"],
+    ["MERPAGO*SOBREPATAS","Bebedero","Visa",114087.96,6,"Abr-2026"],
+    ["MERPAGO*CLAUDIAADRIANA","Chaleco Ropa","Visa",113072.78,2,"Jul-2026"],
+    ["PSA (cupón 006539)","PSA Casa","Visa",677000.00,18,"Jul-2025"],
+    ["PSA (cupón 006582)","PSA Mama","Visa",629609.94,18,"Jul-2025"],
+    ["ATRAPALO (cupón 000517)","Viaje Abuela","Visa",130065.93,9,"Feb-2026"],
+    ["ATRAPALO (cupón 006612)","Viaje Guada","Visa",264157.98,6,"Abr-2026"],
+    ["ATRAPALO (cupón 006629)","Viaje Tía","Visa",264157.98,6,"Abr-2026"],
+    ["COMPUMAR","Pantalla Manu","Visa",300000.00,6,"Jun-2026"],
+    ["MERPAGO*SAIA","Ropa Lau","Visa",140799.99,3,"Jun-2026"],
+    ["MERPAGO*TRENDYDEALS","Cafetera","Visa",443298.96,9,"Jun-2026"],
+    ["102-MOOV FLORIDA II","Zapatillas Samba","Visa",83998.98,3,"Jun-2026"],
+    ["COTO SUCURSAL 220","Aspiradora","Visa",305909.10,9,"Jul-2026"],
+    ["MERPAGO*FARMACITY","Farmacity","Visa",64766.37,3,"Jul-2026"],
+  ].map(([descripcion,detalle,tarjeta,montoTotal,totalCuotas,mesInicio]) =>
+    ({id:uid(),descripcion,detalle,tarjeta,montoTotal,totalCuotas,mesInicio}));
+
+  return { dollarRate: 1590, months, cuotasPendientes, suscripciones };
+}
+
+let state = null;
+const STORAGE_KEY = "libro-gastos-laura-v1";
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){ console.warn("No se pudo leer localStorage", e); }
+  return seedData();
+}
+function saveState(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch(e){ console.warn("No se pudo guardar en localStorage (modo vista previa)", e); }
+}
+
+/* =========================== HELPERS =========================== */
+const fmt = n => "$" + (Math.round((n||0)*100)/100).toLocaleString("es-AR",{minimumFractionDigits:0,maximumFractionDigits:0});
+
+function sectionSubtotal(items){
+  return items.reduce((s,i)=> s + (parseFloat(i.monto)||0), 0);
+}
+function fijosEffectiveMonto(row){
+  const monto = parseFloat(row.monto)||0;
+  return row.compartido ? monto/2 : monto;
+}
+function fijosSubtotal(items){
+  return items.reduce((s,i)=> s + fijosEffectiveMonto(i), 0);
+}
+function suscripcionEffectiveMonto(row){
+  const monto = parseFloat(row.monto)||0;
+  return row.moneda === "USD" ? monto*state.dollarRate : monto;
+}
+function suscripcionActivaEnMes(row, m){
+  const mIndex = MESES.indexOf(m);
+  const desdeAbs = row.desde ? parseAbsMonth(row.desde) : null;
+  const hastaAbs = row.hasta ? parseAbsMonth(row.hasta) : null;
+  const desdeIdx = desdeAbs !== null ? desdeAbs - REF_ABS_MONTH : -Infinity;
+  const hastaIdx = hastaAbs !== null ? hastaAbs - REF_ABS_MONTH : Infinity;
+  return mIndex >= desdeIdx && mIndex <= hastaIdx;
+}
+function suscripcionesActivasEnMes(m){
+  return state.suscripciones.filter(row => suscripcionActivaEnMes(row, m));
+}
+function suscripcionesSubtotalMes(m){
+  return suscripcionesActivasEnMes(m).reduce((s,r)=> s + suscripcionEffectiveMonto(r), 0);
+}
+function monthData(m){ return state.months[m]; }
+
+/* ---- Cuotas: mes de referencia = Ago-2026 (índice 0 en MESES) ---- */
+const MONTH_ABBR = {"Ene":1,"Feb":2,"Mar":3,"Abr":4,"May":5,"Jun":6,"Jul":7,"Ago":8,"Sep":9,"Oct":10,"Nov":11,"Dic":12};
+function parseAbsMonth(label){
+  if(!label) return null;
+  const [abbr, yearStr] = String(label).split("-");
+  const year = parseInt(yearStr,10);
+  const monthNum = MONTH_ABBR[abbr];
+  if(!year || !monthNum) return null;
+  return year*12 + monthNum;
+}
+const REF_ABS_MONTH = parseAbsMonth("Ago-2026"); // mes de referencia (índice 0)
+
+function cuotasPagadasCalc(row){
+  const abs = parseAbsMonth(row.mesInicio);
+  if(abs === null) return 0;
+  return REF_ABS_MONTH - abs;
+}
+function cuotaCalc(row){
+  const cuotaMensual = row.totalCuotas ? (row.montoTotal||0)/row.totalCuotas : 0;
+  const pagadas = cuotasPagadasCalc(row);
+  const restantes = (row.totalCuotas||0) - pagadas;
+  const montoRestante = cuotaMensual*restantes;
+  const mesFin = row.mesInicio ? `${row.mesInicio} (+${restantes}m)` : "";
+  return { cuotaMensual, pagadas, restantes, montoRestante, mesFin };
+}
+function totalCuotasPendientes(){
+  return state.cuotasPendientes.reduce((s,r)=> s + cuotaCalc(r).montoRestante, 0);
+}
+
+/* Cuotas activas en un mes dado (m = "Sep-2026", etc.) — se arman solas
+   a partir de Cuotas Pendientes, mirando cuántos meses pasaron desde Ago-2026. */
+function cuotasActivasEnMes(m){
+  const mIndex = MESES.indexOf(m);
+  return state.cuotasPendientes.map(row=>{
+    const pagadas = cuotasPagadasCalc(row);
+    const cuotaNum = pagadas + mIndex + 1;
+    const total = row.totalCuotas||0;
+    if(cuotaNum >= 1 && cuotaNum <= total){
+      const cuotaMensual = total ? (row.montoTotal||0)/total : 0;
+      return { id: row.id, descripcion: row.descripcion, tarjeta: row.tarjeta,
+               cuota: `${cuotaNum}/${total}`, monto: cuotaMensual };
+    }
+    return null;
+  }).filter(Boolean);
+}
+function cuotasTarjetaSubtotal(m){
+  return cuotasActivasEnMes(m).reduce((s,r)=>s+r.monto,0);
+}
+
+function monthTotals(m){
+  const d = monthData(m);
+  const fijos = fijosSubtotal(d.fijos);
+  const varios = sectionSubtotal(d.varios);
+  const cuotas = cuotasTarjetaSubtotal(m);
+  const variosT = sectionSubtotal(d.variosTarjeta);
+  const susc = suscripcionesSubtotalMes(m);
+  return { fijos, varios, cuotas, variosT, susc, total: fijos+varios+cuotas+variosT+susc };
+}
+
+/* =========================== NAV =========================== */
+let currentView = "resumen";
+
+function renderNav(){
+  const monthNav = document.getElementById("monthNav");
+  monthNav.innerHTML = '<div class="nav-label">Meses</div>' + MESES.map(m =>
+    `<button class="nav-btn" data-view="${m}">${m}</button>`).join("");
+  document.querySelectorAll(".nav-btn").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.view === currentView);
+    btn.onclick = () => { currentView = btn.dataset.view; renderNav(); renderMain(); };
+  });
+}
+
+/* =========================== GENERIC TABLE =========================== */
+function buildTable({ columns, data, onAdd, onDelete, computed=[] }){
+  const wrap = document.createElement("div");
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.innerHTML = "<tr>" + columns.map(c=>`<th>${c.label}</th>`).join("") +
+    computed.map(c=>`<th>${c.label}</th>`).join("") + "<th></th></tr>";
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+
+  data.forEach(row=>{
+    const tr = document.createElement("tr");
+    columns.forEach(col=>{
+      const td = document.createElement("td");
+      if(col.money) td.classList.add("num");
+      let field;
+      if(col.type === "select"){
+        field = document.createElement("select");
+        col.options.forEach(opt=>{
+          const o = document.createElement("option");
+          o.value = opt; o.textContent = opt;
+          if(row[col.key] === opt) o.selected = true;
+          field.appendChild(o);
+        });
+        field.addEventListener("input", ()=>{
+          row[col.key] = field.value;
+          saveState(); renderMain();
+        });
+      } else if(col.type === "checkbox"){
+        td.style.textAlign = "center";
+        field = document.createElement("input");
+        field.type = "checkbox";
+        field.style.width = "auto";
+        field.checked = !!row[col.key];
+        field.addEventListener("change", ()=>{
+          row[col.key] = field.checked;
+          saveState(); renderMain();
+        });
+      } else {
+        field = document.createElement("input");
+        field.type = col.type === "number" ? "number" : "text";
+        if(col.money) field.classList.add("mono");
+        field.value = row[col.key] ?? "";
+        field.placeholder = col.placeholder || "";
+        field.addEventListener("input", ()=>{
+          row[col.key] = col.type === "number" ? (parseFloat(field.value)||0) : field.value;
+          saveState(); renderMain();
+        });
+      }
+      td.appendChild(field);
+      tr.appendChild(td);
+    });
+    computed.forEach(c=>{
+      const td = document.createElement("td");
+      td.className = "readonly";
+      td.textContent = c.render(row);
+      tr.appendChild(td);
+    });
+    const tdDel = document.createElement("td");
+    const delBtn = document.createElement("button");
+    delBtn.className = "del-btn"; delBtn.textContent = "×"; delBtn.title = "Eliminar fila";
+    delBtn.onclick = ()=>{ onDelete(row.id); };
+    tdDel.appendChild(delBtn);
+    tr.appendChild(tdDel);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+
+  const addBar = document.createElement("div");
+  addBar.className = "add-row-bar";
+  const addBtn = document.createElement("button");
+  addBtn.className = "add-btn"; addBtn.textContent = "+ Agregar fila";
+  addBtn.onclick = onAdd;
+  addBar.appendChild(addBtn);
+  wrap.appendChild(addBar);
+
+  return wrap;
+}
+
+function buildReadOnlyTable({ columns, data, emptyMsg }){
+  const wrap = document.createElement("div");
+  if(data.length === 0){
+    const p = document.createElement("p");
+    p.style.cssText = "padding:14px 16px;color:var(--ink-soft);font-size:13px;";
+    p.textContent = emptyMsg || "Sin cuotas activas este mes.";
+    wrap.appendChild(p);
+    return wrap;
+  }
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.innerHTML = "<tr>" + columns.map(c=>`<th>${c.label}</th>`).join("") + "</tr>";
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  data.forEach(row=>{
+    const tr = document.createElement("tr");
+    columns.forEach(col=>{
+      const td = document.createElement("td");
+      td.className = col.money ? "readonly" : "";
+      td.style.padding = "7px 12px";
+      td.textContent = col.money ? fmt(row[col.key]) : row[col.key];
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
+}
+
+function sectionCard({ title, colorClass, subtotal, tableEl }){
+  const card = document.createElement("section");
+  card.className = "card";
+  const head = document.createElement("div");
+  head.className = "card-head " + colorClass;
+  head.innerHTML = `<h3>${title}</h3><span class="subtotal mono">${fmt(subtotal)}</span>`;
+  card.appendChild(head);
+  card.appendChild(tableEl);
+  return card;
+}
+
+/* =========================== VIEWS =========================== */
+function renderMonthView(m){
+  const main = document.getElementById("main");
+  main.innerHTML = "";
+  const d = monthData(m);
+  const totals = monthTotals(m);
+
+  const head = document.createElement("div");
+  head.className = "page-head";
+  head.innerHTML = `
+    <div><h2>Gastos — ${m}</h2><div class="sub">Cargá, editá o borrá filas directamente en cada tabla.</div></div>
+    <div class="rate-box">Tipo de cambio USD → ARS: $
+      <input type="number" id="rateInput" value="${state.dollarRate}" class="mono">
+    </div>`;
+  main.appendChild(head);
+  head.querySelector("#rateInput").addEventListener("input", e=>{
+    state.dollarRate = parseFloat(e.target.value)||0;
+    saveState(); renderMain();
+  });
+
+  const banner = document.createElement("div");
+  banner.className = "total-banner";
+  banner.innerHTML = `<span class="label">Total del mes</span><span class="amount mono">${fmt(totals.total)}</span>`;
+  main.appendChild(banner);
+
+  // Gastos Fijos
+  main.appendChild(sectionCard({
+    title:"Gastos Fijos", colorClass:"c-fijos", subtotal: totals.fijos,
+    tableEl: buildTable({
+      columns:[
+        {key:"fecha",label:"Fecha",type:"text"},
+        {key:"descripcion",label:"Descripción",type:"text"},
+        {key:"categoria",label:"Categoría",type:"select",options:CATEGORIAS},
+        {key:"monto",label:"Monto",type:"number",money:true},
+        {key:"compartido",label:"¿Se divide entre 2?",type:"checkbox"},
+      ],
+      computed:[{label:"Tu parte", render:(row)=> fmt(fijosEffectiveMonto(row))}],
+      data:d.fijos,
+      onAdd:()=>{ d.fijos.push({id:uid(),fecha:"",descripcion:"",categoria:CATEGORIAS[0],monto:0,compartido:false}); saveState(); renderMain(); },
+      onDelete:(id)=>{ d.fijos = d.fijos.filter(r=>r.id!==id); saveState(); renderMain(); },
+    })
+  }));
+
+  // Gastos Varios
+  main.appendChild(sectionCard({
+    title:"Gastos Varios", colorClass:"c-varios", subtotal: totals.varios,
+    tableEl: buildTable({
+      columns:[
+        {key:"fecha",label:"Fecha",type:"text"},
+        {key:"descripcion",label:"Descripción",type:"text"},
+        {key:"categoria",label:"Categoría",type:"select",options:CATEGORIAS},
+        {key:"monto",label:"Monto",type:"number",money:true},
+      ],
+      data:d.varios,
+      onAdd:()=>{ d.varios.push({id:uid(),fecha:"",descripcion:"",categoria:CATEGORIAS[0],monto:0}); saveState(); renderMain(); },
+      onDelete:(id)=>{ d.varios = d.varios.filter(r=>r.id!==id); saveState(); renderMain(); },
+    })
+  }));
+
+  // Cuotas Tarjeta — se arma sola desde "Cuotas Pendientes", no se edita acá
+  main.appendChild(sectionCard({
+    title:"Cuotas Tarjeta (automático)", colorClass:"c-cuotas", subtotal: totals.cuotas,
+    tableEl: buildReadOnlyTable({
+      columns:[
+        {key:"descripcion",label:"Descripción"},
+        {key:"tarjeta",label:"Tarjeta"},
+        {key:"cuota",label:"Cuota (Nº/Total)"},
+        {key:"monto",label:"Monto",money:true},
+      ],
+      data: cuotasActivasEnMes(m),
+      emptyMsg: "No hay cuotas activas este mes. Cargalas en \"Cuotas Pendientes\" y van a aparecer solas acá.",
+    })
+  }));
+
+  // Gastos Varios Tarjeta
+  main.appendChild(sectionCard({
+    title:"Gastos Varios Tarjeta", colorClass:"c-variostarj", subtotal: totals.variosT,
+    tableEl: buildTable({
+      columns:[
+        {key:"descripcion",label:"Descripción",type:"text"},
+        {key:"tarjeta",label:"Tarjeta",type:"select",options:TARJETAS},
+        {key:"categoria",label:"Categoría",type:"select",options:CATEGORIAS},
+        {key:"monto",label:"Monto",type:"number",money:true},
+      ],
+      data:d.variosTarjeta,
+      onAdd:()=>{ d.variosTarjeta.push({id:uid(),descripcion:"",tarjeta:"Visa",categoria:CATEGORIAS[0],monto:0}); saveState(); renderMain(); },
+      onDelete:(id)=>{ d.variosTarjeta = d.variosTarjeta.filter(r=>r.id!==id); saveState(); renderMain(); },
+    })
+  }));
+
+  // Suscripciones — se repiten automáticamente todos los meses (editalas en la pestaña Suscripciones)
+  main.appendChild(sectionCard({
+    title:"Suscripciones (automático)", colorClass:"c-susc", subtotal: totals.susc,
+    tableEl: buildReadOnlyTable({
+      columns:[
+        {key:"descripcion",label:"Descripción"},
+        {key:"moneda",label:"Moneda"},
+        {key:"montoArs",label:"Monto en ARS",money:true},
+      ],
+      data: suscripcionesActivasEnMes(m).map(r=>({...r, montoArs: suscripcionEffectiveMonto(r)})),
+      emptyMsg: "No hay suscripciones activas este mes. Cargalas en \"Suscripciones\" y van a repetirse solas cada mes.",
+    })
+  }));
+
+  const note = document.createElement("footer");
+  note.className = "note";
+  note.textContent = "Los datos se guardan automáticamente en este navegador. Si lo abrís en otra compu o navegador, no se van a compartir.";
+  main.appendChild(note);
+}
+
+function renderResumen(){
+  const main = document.getElementById("main");
+  main.innerHTML = "";
+  const head = document.createElement("div");
+  head.className = "page-head";
+  head.innerHTML = `<div><h2>Resumen General</h2><div class="sub">Totales por mes en un solo lugar.</div></div>`;
+  main.appendChild(head);
+
+  const table = document.createElement("table");
+  table.className = "plain-table";
+  let rows = "";
+  let tFijos=0,tTarj=0,tSusc=0,tTotal=0;
+  MESES.forEach(m=>{
+    const t = monthTotals(m);
+    tFijos += t.fijos+t.varios; tTarj += t.cuotas+t.variosT; tSusc += t.susc; tTotal += t.total;
+    rows += `<tr><td>${m}</td><td class="num mono">${fmt(t.fijos+t.varios)}</td><td class="num mono">${fmt(t.cuotas+t.variosT)}</td><td class="num mono">${fmt(t.susc)}</td><td class="num mono">${fmt(t.total)}</td></tr>`;
+  });
+  rows += `<tr><td>TOTAL</td><td class="num mono">${fmt(tFijos)}</td><td class="num mono">${fmt(tTarj)}</td><td class="num mono">${fmt(tSusc)}</td><td class="num mono">${fmt(tTotal)}</td></tr>`;
+  table.innerHTML = `<thead><tr><th>Mes</th><th>Fijos + Varios</th><th>Tarjeta</th><th>Suscripciones</th><th>Total</th></tr></thead><tbody>${rows}</tbody>`;
+  main.appendChild(table);
+
+  const cuotasBox = document.createElement("div");
+  cuotasBox.className = "total-banner";
+  cuotasBox.style.marginTop = "22px";
+  cuotasBox.innerHTML = `<span class="label">Monto restante en cuotas</span><span class="amount mono">${fmt(totalCuotasPendientes())}</span>`;
+  main.appendChild(cuotasBox);
+}
+
+function renderCuotasPendientes(){
+  const main = document.getElementById("main");
+  main.innerHTML = "";
+  const head = document.createElement("div");
+  head.className = "page-head";
+  head.innerHTML = `<div><h2>Cuotas Pendientes</h2><div class="sub">Una fila por cada compra en cuotas. Escribí el Mes Inicio como "Abr-2026" — el resto se calcula solo, y esas cuotas van a aparecer automáticamente en los meses que correspondan.</div></div>`;
+  main.appendChild(head);
+
+  const banner = document.createElement("div");
+  banner.className = "total-banner";
+  banner.innerHTML = `<span class="label">Total restante en cuotas</span><span class="amount mono">${fmt(totalCuotasPendientes())}</span>`;
+  main.appendChild(banner);
+
+  const tableEl = buildTable({
+    columns:[
+      {key:"descripcion",label:"Descripción",type:"text"},
+      {key:"detalle",label:"Detalle",type:"text"},
+      {key:"tarjeta",label:"Tarjeta",type:"select",options:TARJETAS},
+      {key:"montoTotal",label:"Monto Total",type:"number",money:true},
+      {key:"totalCuotas",label:"Total Cuotas",type:"number"},
+      {key:"mesInicio",label:"Mes Inicio",type:"text",placeholder:"ej. Abr-2026"},
+    ],
+    data: state.cuotasPendientes,
+    computed:[
+      {label:"Cuota Mensual", render:(row)=> fmt(cuotaCalc(row).cuotaMensual)},
+      {label:"Cuotas Pagadas", render:(row)=> String(cuotaCalc(row).pagadas)},
+      {label:"Cuotas Restantes", render:(row)=> String(cuotaCalc(row).restantes)},
+      {label:"Monto Restante", render:(row)=> fmt(cuotaCalc(row).montoRestante)},
+      {label:"Mes Fin Estimado", render:(row)=> cuotaCalc(row).mesFin},
+    ],
+    onAdd:()=>{ state.cuotasPendientes.push({id:uid(),descripcion:"",detalle:"",tarjeta:"Visa",montoTotal:0,totalCuotas:1,mesInicio:""}); saveState(); renderMain(); },
+    onDelete:(id)=>{ state.cuotasPendientes = state.cuotasPendientes.filter(r=>r.id!==id); saveState(); renderMain(); },
+  });
+  main.appendChild(sectionCard({ title:"Cuotas activas", colorClass:"c-cuotas", subtotal: totalCuotasPendientes(), tableEl }));
+}
+
+function renderSuscripciones(){
+  const main = document.getElementById("main");
+  main.innerHTML = "";
+  const head = document.createElement("div");
+  head.className = "page-head";
+  head.innerHTML = `<div><h2>Suscripciones</h2><div class="sub">Cada una se repite automáticamente TODOS los meses. Dejá Desde/Hasta vacíos si no aplica. Para cancelar una, ponele un "Hasta" o borrá la fila directamente.</div></div>`;
+  main.appendChild(head);
+
+  const banner = document.createElement("div");
+  banner.className = "total-banner";
+  banner.innerHTML = `<span class="label">Total mensual actual (con tipo de cambio de hoy)</span><span class="amount mono">${fmt(suscripcionesSubtotalMes(MESES[0]))}</span>`;
+  main.appendChild(banner);
+
+  const tableEl = buildTable({
+    columns:[
+      {key:"descripcion",label:"Descripción",type:"text"},
+      {key:"moneda",label:"Moneda",type:"select",options:["ARS","USD"]},
+      {key:"monto",label:"Monto",type:"number",money:true},
+      {key:"desde",label:"Desde (opcional)",type:"text",placeholder:"ej. Sep-2026"},
+      {key:"hasta",label:"Hasta (opcional)",type:"text",placeholder:"ej. Dic-2026"},
+    ],
+    data: state.suscripciones,
+    computed:[{label:"Monto en ARS", render:(row)=> fmt(suscripcionEffectiveMonto(row))}],
+    onAdd:()=>{ state.suscripciones.push({id:uid(),descripcion:"",moneda:"ARS",monto:0,desde:"",hasta:""}); saveState(); renderMain(); },
+    onDelete:(id)=>{ state.suscripciones = state.suscripciones.filter(r=>r.id!==id); saveState(); renderMain(); },
+  });
+  main.appendChild(sectionCard({ title:"Suscripciones activas", colorClass:"c-susc", subtotal: suscripcionesSubtotalMes(MESES[0]), tableEl }));
+}
+
+let informeMonth = "Ago-2026";
+function renderInforme(){
+  const main = document.getElementById("main");
+  main.innerHTML = "";
+  const head = document.createElement("div");
+  head.className = "page-head";
+  head.innerHTML = `<div><h2>Informe por Categoría</h2><div class="sub">Suma de Gastos Fijos + Gastos Varios + Gastos Varios Tarjeta, agrupados por categoría.</div></div>`;
+  main.appendChild(head);
+
+  const picker = document.createElement("div");
+  picker.className = "month-picker";
+  ["Todos", ...MESES].forEach(m=>{
+    const btn = document.createElement("button");
+    btn.textContent = m;
+    btn.className = m === informeMonth ? "active" : "";
+    btn.onclick = ()=>{ informeMonth = m; renderMain(); };
+    picker.appendChild(btn);
+  });
+  main.appendChild(picker);
+
+  const byCat = {};
+  const monthsToUse = informeMonth === "Todos" ? MESES : [informeMonth];
+  monthsToUse.forEach(m=>{
+    const d = monthData(m);
+    d.fijos.forEach(row=>{
+      const cat = row.categoria || "Otro";
+      byCat[cat] = (byCat[cat]||0) + fijosEffectiveMonto(row);
+    });
+    [...d.varios, ...d.variosTarjeta].forEach(row=>{
+      const cat = row.categoria || "Otro";
+      byCat[cat] = (byCat[cat]||0) + (parseFloat(row.monto)||0);
+    });
+  });
+  const entries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const max = entries.length ? entries[0][1] : 1;
+
+  const card = document.createElement("section");
+  card.className = "card";
+  const bars = document.createElement("div");
+  bars.style.padding = "20px";
+  if(entries.length === 0){
+    bars.innerHTML = `<p style="color:var(--ink-soft);font-size:13.5px;">No hay gastos categorizados en este período todavía.</p>`;
+  } else {
+    const barsWrap = document.createElement("div");
+    barsWrap.className = "bars";
+    entries.forEach(([cat,val])=>{
+      const row = document.createElement("div");
+      row.className = "bar-row";
+      row.innerHTML = `
+        <span>${cat}</span>
+        <span class="bar-track"><span class="bar-fill" style="width:${Math.max(4,(val/max)*100)}%"></span></span>
+        <span class="bar-amount mono">${fmt(val)}</span>`;
+      barsWrap.appendChild(row);
+    });
+    bars.appendChild(barsWrap);
+    const totalLine = document.createElement("p");
+    totalLine.style.cssText = "margin-top:16px;font-size:12.5px;color:var(--ink-soft);";
+    const totalCat = entries.reduce((s,[,v])=>s+v,0);
+    totalLine.innerHTML = `Total categorizado: <strong class="mono">${fmt(totalCat)}</strong>`;
+    bars.appendChild(totalLine);
+  }
+  card.appendChild(bars);
+  main.appendChild(card);
+
+  // Tendencia mensual (todos los meses, total del mes completo)
+  const trendHead = document.createElement("h3");
+  trendHead.style.cssText = "margin:26px 0 12px;font-size:17px;color:var(--green-deep);";
+  trendHead.textContent = "Tendencia — Total del mes";
+  main.appendChild(trendHead);
+
+  const trendCard = document.createElement("section");
+  trendCard.className = "card";
+  const trendBody = document.createElement("div");
+  trendBody.style.padding = "20px";
+  const trendVals = MESES.map(m => [m, monthTotals(m).total]);
+  const trendMax = Math.max(1, ...trendVals.map(v=>v[1]));
+  const trendWrap = document.createElement("div");
+  trendWrap.className = "bars";
+  trendVals.forEach(([m,val])=>{
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.innerHTML = `
+      <span>${m}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${Math.max(2,(val/trendMax)*100)}%"></span></span>
+      <span class="bar-amount mono">${fmt(val)}</span>`;
+    trendWrap.appendChild(row);
+  });
+  trendBody.appendChild(trendWrap);
+  trendCard.appendChild(trendBody);
+  main.appendChild(trendCard);
+}
+
+function renderMain(){
+  if(currentView === "resumen") return renderResumen();
+  if(currentView === "cuotas") return renderCuotasPendientes();
+  if(currentView === "suscripciones") return renderSuscripciones();
+  if(currentView === "informe") return renderInforme();
+  return renderMonthView(currentView);
+}
+
+/* =========================== INIT =========================== */
+state = loadState();
+renderNav();
+renderMain();
+</script>
+</body>
+</html>
