@@ -269,9 +269,29 @@ const STORAGE_KEY = "libro-gastos-laura-v1";
 function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw) return JSON.parse(raw);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      return migrateState(parsed);
+    }
   }catch(e){ console.warn("No se pudo leer localStorage", e); }
   return seedData();
+}
+// Completa con valores por defecto cualquier campo que falte por versiones
+// viejas guardadas en el navegador (para no romper al agregar secciones nuevas).
+function migrateState(parsed){
+  const fresh = seedData();
+  if(!Array.isArray(parsed.fijos)) parsed.fijos = fresh.fijos;
+  if(!Array.isArray(parsed.suscripciones)) parsed.suscripciones = fresh.suscripciones;
+  if(!Array.isArray(parsed.cuotasPendientes)) parsed.cuotasPendientes = fresh.cuotasPendientes;
+  if(typeof parsed.dollarRate !== "number") parsed.dollarRate = fresh.dollarRate;
+  if(typeof parsed.months !== "object" || parsed.months === null) parsed.months = fresh.months;
+  MESES.forEach(m=>{
+    if(!parsed.months[m]) parsed.months[m] = {varios:[], variosTarjeta:[]};
+    if(!Array.isArray(parsed.months[m].varios)) parsed.months[m].varios = [];
+    if(!Array.isArray(parsed.months[m].variosTarjeta)) parsed.months[m].variosTarjeta = [];
+  });
+  parsed.fijos.forEach(r=>{ if(!r.overrides || typeof r.overrides !== "object") r.overrides = {}; });
+  return parsed;
 }
 function saveState(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
