@@ -163,6 +163,7 @@
     <div class="nav-group">
       <div class="nav-label">General</div>
       <button class="nav-btn" data-view="resumen">Resumen</button>
+      <button class="nav-btn" data-view="fijos">Gastos Fijos</button>
       <button class="nav-btn" data-view="cuotas">Cuotas Pendientes</button>
       <button class="nav-btn" data-view="suscripciones">Suscripciones</button>
       <button class="nav-btn" data-view="informe">Informe</button>
@@ -187,17 +188,17 @@ const TARJETAS = ["Visa","Mastercard","Otra"];
 function uid(){ return Math.random().toString(36).slice(2,9); }
 
 function seedData(){
-  const emptyMonth = () => ({fijos:[], varios:[], variosTarjeta:[]});
+  const emptyMonth = () => ({varios:[], variosTarjeta:[]});
   const months = {};
   MESES.forEach(m => months[m] = emptyMonth());
 
-  months["Ago-2026"].fijos = [
-    {id:uid(), fecha:"01/08/2026", descripcion:"Alquiler", categoria:"Vivienda", monto:960000, compartido:true},
-    {id:uid(), fecha:"01/08/2026", descripcion:"Expensas", categoria:"Vivienda", monto:466435, compartido:true},
-    {id:uid(), fecha:"01/08/2026", descripcion:"Luz", categoria:"Vivienda", monto:23690, compartido:true},
-    {id:uid(), fecha:"01/08/2026", descripcion:"Gas", categoria:"Vivienda", monto:7954, compartido:true},
-    {id:uid(), fecha:"01/08/2026", descripcion:"Internet", categoria:"Vivienda", monto:52620, compartido:true},
-    {id:uid(), fecha:"01/08/2026", descripcion:"Cuota Auto", categoria:"Auto", monto:426257, compartido:false},
+  const fijos = [
+    {id:uid(), descripcion:"Alquiler", categoria:"Vivienda", monto:960000, compartido:true, overrides:{}},
+    {id:uid(), descripcion:"Expensas", categoria:"Vivienda", monto:466435, compartido:true, overrides:{}},
+    {id:uid(), descripcion:"Luz", categoria:"Vivienda", monto:23690, compartido:true, overrides:{}},
+    {id:uid(), descripcion:"Gas", categoria:"Vivienda", monto:7954, compartido:true, overrides:{}},
+    {id:uid(), descripcion:"Internet", categoria:"Vivienda", monto:52620, compartido:true, overrides:{}},
+    {id:uid(), descripcion:"Cuota Auto", categoria:"Auto", monto:426257, compartido:false, overrides:{}},
   ];
 
   months["Ago-2026"].variosTarjeta = [
@@ -259,7 +260,7 @@ function seedData(){
   ].map(([descripcion,detalle,tarjeta,montoTotal,totalCuotas,mesInicio]) =>
     ({id:uid(),descripcion,detalle,tarjeta,montoTotal,totalCuotas,mesInicio}));
 
-  return { dollarRate: 1590, months, cuotasPendientes, suscripciones };
+  return { dollarRate: 1590, months, cuotasPendientes, suscripciones, fijos };
 }
 
 let state = null;
@@ -283,12 +284,22 @@ const fmt = n => "$" + (Math.round((n||0)*100)/100).toLocaleString("es-AR",{mini
 function sectionSubtotal(items){
   return items.reduce((s,i)=> s + (parseFloat(i.monto)||0), 0);
 }
-function fijosEffectiveMonto(row){
-  const monto = parseFloat(row.monto)||0;
+// Gastos Fijos: la fila se repite todos los meses; el precio (monto) se puede
+// pisar mes a mes con "overrides" sin tocar el valor por defecto ni otros meses.
+function fijosMontoParaMes(row, m){
+  if(row.overrides && row.overrides[m] !== undefined && row.overrides[m] !== "") return parseFloat(row.overrides[m])||0;
+  return parseFloat(row.monto)||0;
+}
+function setFijosMontoParaMes(row, m, value){
+  if(!row.overrides) row.overrides = {};
+  row.overrides[m] = value;
+}
+function fijosEffectiveMontoParaMes(row, m){
+  const monto = fijosMontoParaMes(row, m);
   return row.compartido ? monto/2 : monto;
 }
-function fijosSubtotal(items){
-  return items.reduce((s,i)=> s + fijosEffectiveMonto(i), 0);
+function fijosSubtotalMes(m){
+  return state.fijos.reduce((s,r)=> s + fijosEffectiveMontoParaMes(r, m), 0);
 }
 function suscripcionEffectiveMonto(row){
   const monto = parseFloat(row.monto)||0;
@@ -361,7 +372,7 @@ function cuotasTarjetaSubtotal(m){
 
 function monthTotals(m){
   const d = monthData(m);
-  const fijos = fijosSubtotal(d.fijos);
+  const fijos = fijosSubtotalMes(m);
   const varios = sectionSubtotal(d.varios);
   const cuotas = cuotasTarjetaSubtotal(m);
   const variosT = sectionSubtotal(d.variosTarjeta);
@@ -406,7 +417,7 @@ function buildTable({ columns, data, onAdd, onDelete, computed=[] }){
           if(row[col.key] === opt) o.selected = true;
           field.appendChild(o);
         });
-        field.addEventListener("input", ()=>{
+        field.addEventListener("change", ()=>{
           row[col.key] = field.value;
           saveState(); renderMain();
         });
@@ -426,10 +437,13 @@ function buildTable({ columns, data, onAdd, onDelete, computed=[] }){
         if(col.money) field.classList.add("mono");
         field.value = row[col.key] ?? "";
         field.placeholder = col.placeholder || "";
+        // Actualiza el estado en cada letra (sin redibujar, para no perder el foco),
+        // y recién redibuja (recalcula subtotales) al salir del campo.
         field.addEventListener("input", ()=>{
           row[col.key] = col.type === "number" ? (parseFloat(field.value)||0) : field.value;
-          saveState(); renderMain();
+          saveState();
         });
+        field.addEventListener("change", ()=>{ renderMain(); });
       }
       td.appendChild(field);
       tr.appendChild(td);
@@ -459,6 +473,40 @@ function buildTable({ columns, data, onAdd, onDelete, computed=[] }){
   addBar.appendChild(addBtn);
   wrap.appendChild(addBar);
 
+  return wrap;
+}
+
+function buildFijosMonthTable(m){
+  const wrap = document.createElement("div");
+  if(state.fijos.length === 0){
+    const p = document.createElement("p");
+    p.style.cssText = "padding:14px 16px;color:var(--ink-soft);font-size:13px;";
+    p.textContent = "No hay gastos fijos cargados. Agregalos en \"Gastos Fijos\" y van a repetirse solos cada mes.";
+    wrap.appendChild(p);
+    return wrap;
+  }
+  const table = document.createElement("table");
+  table.innerHTML = "<thead><tr><th>Descripción</th><th>Categoría</th><th>Monto</th><th>¿Se divide entre 2?</th><th>Tu parte</th></tr></thead>";
+  const tbody = document.createElement("tbody");
+  state.fijos.forEach(row=>{
+    const tr = document.createElement("tr");
+    const tdDesc = document.createElement("td"); tdDesc.style.padding="7px 12px"; tdDesc.textContent = row.descripcion;
+    const tdCat = document.createElement("td"); tdCat.style.padding="7px 12px"; tdCat.textContent = row.categoria;
+    const tdMonto = document.createElement("td"); tdMonto.classList.add("num");
+    const input = document.createElement("input");
+    input.type = "number";
+    input.classList.add("mono");
+    input.value = fijosMontoParaMes(row, m);
+    input.addEventListener("input", ()=>{ setFijosMontoParaMes(row, m, parseFloat(input.value)||0); saveState(); });
+    input.addEventListener("change", ()=>{ renderMain(); });
+    tdMonto.appendChild(input);
+    const tdComp = document.createElement("td"); tdComp.style.cssText="padding:7px 12px;text-align:center;"; tdComp.textContent = row.compartido ? "Sí" : "No";
+    const tdParte = document.createElement("td"); tdParte.className = "readonly"; tdParte.style.padding="7px 12px"; tdParte.textContent = fmt(fijosEffectiveMontoParaMes(row, m));
+    tr.append(tdDesc, tdCat, tdMonto, tdComp, tdParte);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
   return wrap;
 }
 
@@ -528,22 +576,10 @@ function renderMonthView(m){
   banner.innerHTML = `<span class="label">Total del mes</span><span class="amount mono">${fmt(totals.total)}</span>`;
   main.appendChild(banner);
 
-  // Gastos Fijos
+  // Gastos Fijos — se repiten automáticamente todos los meses (editalos en la pestaña Gastos Fijos)
   main.appendChild(sectionCard({
-    title:"Gastos Fijos", colorClass:"c-fijos", subtotal: totals.fijos,
-    tableEl: buildTable({
-      columns:[
-        {key:"fecha",label:"Fecha",type:"text"},
-        {key:"descripcion",label:"Descripción",type:"text"},
-        {key:"categoria",label:"Categoría",type:"select",options:CATEGORIAS},
-        {key:"monto",label:"Monto",type:"number",money:true},
-        {key:"compartido",label:"¿Se divide entre 2?",type:"checkbox"},
-      ],
-      computed:[{label:"Tu parte", render:(row)=> fmt(fijosEffectiveMonto(row))}],
-      data:d.fijos,
-      onAdd:()=>{ d.fijos.push({id:uid(),fecha:"",descripcion:"",categoria:CATEGORIAS[0],monto:0,compartido:false}); saveState(); renderMain(); },
-      onDelete:(id)=>{ d.fijos = d.fijos.filter(r=>r.id!==id); saveState(); renderMain(); },
-    })
+    title:"Gastos Fijos (automático)", colorClass:"c-fijos", subtotal: totals.fijos,
+    tableEl: buildFijosMonthTable(m)
   }));
 
   // Gastos Varios
@@ -611,6 +647,28 @@ function renderMonthView(m){
   note.className = "note";
   note.textContent = "Los datos se guardan automáticamente en este navegador. Si lo abrís en otra compu o navegador, no se van a compartir.";
   main.appendChild(note);
+}
+
+function renderFijosMaestro(){
+  const main = document.getElementById("main");
+  main.innerHTML = "";
+  const head = document.createElement("div");
+  head.className = "page-head";
+  head.innerHTML = `<div><h2>Gastos Fijos</h2><div class="sub">Cada fila se repite automáticamente TODOS los meses. El monto de acá es el valor por defecto — en cada mes podés pisar el precio (ej. si sube la luz) sin tocar los demás meses.</div></div>`;
+  main.appendChild(head);
+
+  const tableEl = buildTable({
+    columns:[
+      {key:"descripcion",label:"Descripción",type:"text"},
+      {key:"categoria",label:"Categoría",type:"select",options:CATEGORIAS},
+      {key:"monto",label:"Monto por defecto",type:"number",money:true},
+      {key:"compartido",label:"¿Se divide entre 2?",type:"checkbox"},
+    ],
+    data: state.fijos,
+    onAdd:()=>{ state.fijos.push({id:uid(),descripcion:"",categoria:CATEGORIAS[0],monto:0,compartido:false,overrides:{}}); saveState(); renderMain(); },
+    onDelete:(id)=>{ state.fijos = state.fijos.filter(r=>r.id!==id); saveState(); renderMain(); },
+  });
+  main.appendChild(sectionCard({ title:"Gastos fijos recurrentes", colorClass:"c-fijos", subtotal: fijosSubtotalMes(MESES[0]), tableEl }));
 }
 
 function renderResumen(){
@@ -730,9 +788,9 @@ function renderInforme(){
   const monthsToUse = informeMonth === "Todos" ? MESES : [informeMonth];
   monthsToUse.forEach(m=>{
     const d = monthData(m);
-    d.fijos.forEach(row=>{
+    state.fijos.forEach(row=>{
       const cat = row.categoria || "Otro";
-      byCat[cat] = (byCat[cat]||0) + fijosEffectiveMonto(row);
+      byCat[cat] = (byCat[cat]||0) + fijosEffectiveMontoParaMes(row, m);
     });
     [...d.varios, ...d.variosTarjeta].forEach(row=>{
       const cat = row.categoria || "Otro";
@@ -800,6 +858,7 @@ function renderInforme(){
 
 function renderMain(){
   if(currentView === "resumen") return renderResumen();
+  if(currentView === "fijos") return renderFijosMaestro();
   if(currentView === "cuotas") return renderCuotasPendientes();
   if(currentView === "suscripciones") return renderSuscripciones();
   if(currentView === "informe") return renderInforme();
